@@ -1,0 +1,8 @@
+[tool.pyright]
+extraPaths = [
+    "app",
+    "webhook-receiver",
+    "scripts",
+    "loadgen",
+    "prepare/tests"
+]

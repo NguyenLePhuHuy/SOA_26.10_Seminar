@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="vi" class="h-full bg-slate-900 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚡ Workshop Demo App - Observability Control</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="h-full flex flex-col p-4 sm:p-8">
+  <div class="max-w-5xl w-full mx-auto space-y-6">
+    
+    <!-- Header -->
+    <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-6 shadow-xl backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white text-xl shadow-lg shadow-cyan-500/20">
+          <i class="fa-solid fa-server"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl font-bold text-white tracking-tight">Prometheus & Grafana Demo Service</h1>
+            <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800">Port 8000</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-0.5">Microservice cung cấp các endpoint mô phỏng tải bình thường, độ trễ, và lỗi HTTP 500</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 flex-wrap">
+        <a href="http://localhost:8001" target="_blank" class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center gap-1.5 shadow-sm">
+          <i class="fa-solid fa-cart-shopping"></i> Shop App (8001)
+        </a>
+        <a href="http://localhost:3005" target="_blank" class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-orange-600/20 text-orange-400 border border-orange-500/30 hover:bg-orange-600/30 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-chart-line"></i> Grafana
+        </a>
+        <a href="http://localhost:9091" target="_blank" class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-rose-600/20 text-rose-400 border border-rose-500/30 hover:bg-rose-600/30 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-fire"></i> Prometheus
+        </a>
+        <a href="/docs" target="_blank" class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 transition">
+          Swagger
+        </a>
+      </div>
+    </div>
+
+    <!-- Actions Control Panel -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      
+      <!-- Normal Work -->
+      <div class="bg-slate-800/80 border border-slate-700 rounded-2xl p-5 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold uppercase text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/40">HTTP 200 OK</span>
+            <i class="fa-solid fa-circle-check text-emerald-400"></i>
+          </div>
+          <h3 class="text-base font-bold text-white mt-3">Endpoint /work</h3>
+          <p class="text-xs text-slate-400 mt-1">Mô phỏng request xử lý thành công, latency ngẫu nhiên 20–80ms.</p>
+        </div>
+        <button onclick="sendReq('GET', '/work', 'demo_http_requests_total{status=200}')" class="mt-4 w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition flex items-center justify-center gap-2 shadow-sm">
+          <i class="fa-solid fa-paper-plane"></i> Gửi 1 Request /work
+        </button>
+      </div>
+
+      <!-- High Latency -->
+      <div class="bg-slate-800/80 border border-slate-700 rounded-2xl p-5 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold uppercase text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-800/40">Delay ~1.5s</span>
+            <i class="fa-solid fa-clock text-amber-400"></i>
+          </div>
+          <h3 class="text-base font-bold text-white mt-3">Endpoint /slow</h3>
+          <p class="text-xs text-slate-400 mt-1">Chủ động tạo độ trễ cao, kích hoạt biểu đồ Latency P90/P99 trên Grafana.</p>
+        </div>
+        <button onclick="sendReq('GET', '/slow?delay=1.5', 'demo_http_request_duration_seconds')" class="mt-4 w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs transition flex items-center justify-center gap-2 shadow-sm">
+          <i class="fa-solid fa-hourglass-half"></i> Gửi Request /slow (1.5s)
+        </button>
+      </div>
+
+      <!-- Deliberate Error -->
+      <div class="bg-slate-800/80 border border-slate-700 rounded-2xl p-5 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold uppercase text-rose-400 bg-rose-950/60 px-2 py-0.5 rounded border border-rose-800/40">HTTP 500</span>
+            <i class="fa-solid fa-triangle-exclamation text-rose-400"></i>
+          </div>
+          <h3 class="text-base font-bold text-white mt-3">Endpoint /error</h3>
+          <p class="text-xs text-slate-400 mt-1">Chủ động trả về HTTP 500, kích hoạt cảnh báo HighErrorRate trên Alertmanager.</p>
+        </div>
+        <button onclick="sendReq('GET', '/error?status=500', 'demo_http_requests_total{status=500}')" class="mt-4 w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition flex items-center justify-center gap-2 shadow-sm">
+          <i class="fa-solid fa-bomb"></i> Gửi 1 Lỗi /error (500)
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Batch / Chaos Panel -->
+    <div class="bg-slate-800/80 border border-slate-700 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div>
+        <h4 class="font-bold text-sm text-white">Chế độ Chaos Testing & Gửi tải liên tục</h4>
+        <p class="text-xs text-slate-400 mt-0.5">Tiêm lỗi ngẫu nhiên và độ trễ vào toàn bộ service để test hệ thống quan sát.</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <button onclick="toggleChaos(true)" class="px-4 py-2 rounded-xl bg-rose-700 hover:bg-rose-600 text-white text-xs font-semibold transition">
+          🔥 Bật Chaos Mode (50% Error)
+        </button>
+        <button onclick="toggleChaos(false)" class="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold transition">
+          🛡️ Tắt Chaos Mode
+        </button>
+      </div>
+    </div>
+
+    <!-- Log Console -->
+    <div class="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+      <div class="px-5 py-3 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"></div>
+          <span class="text-xs font-bold text-slate-300">Nhật ký phản hồi request trực tiếp</span>
+        </div>
+        <button onclick="clearConsole()" class="text-xs text-slate-500 hover:text-slate-300 transition">Xóa</button>
+      </div>
+      <div id="console-logs" class="p-4 max-h-80 overflow-y-auto space-y-2 text-xs font-mono">
+        <div class="text-slate-500 italic text-center">Bấm các nút ở trên để gửi request và xem phản hồi tức thời!</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    async function sendReq(method, endpoint, metricName) {
+      const start = performance.now();
+      try {
+        const res = await fetch(endpoint, { method: method });
+        const duration = Math.round(performance.now() - start);
+        let data = {};
+        try { data = await res.json(); } catch(e) { data = { text: await res.text() }; }
+        addLog(method, endpoint, res.status, duration, metricName, data);
+      } catch (err) {
+        const duration = Math.round(performance.now() - start);
+        addLog(method, endpoint, 500, duration, 'Network Error', { error: err.message });
+      }
+    }
+
+    async function toggleChaos(enabled) {
+      const url = `/chaos?enabled=${enabled}&error_rate=${enabled ? 0.5 : 0.0}&latency=${enabled ? 0.3 : 0.0}`;
+      await sendReq('POST', url, 'Chaos Config Updated');
+    }
+
+    function addLog(method, endpoint, status, duration, metricName, data) {
+      const box = document.getElementById('console-logs');
+      if (box.children.length === 1 && box.children[0].classList.contains('italic')) {
+        box.innerHTML = '';
+      }
+
+      const statusColor = status >= 200 && status < 300 ? 'text-emerald-400 border-emerald-800' : 'text-rose-400 border-rose-800';
+      const timeStr = new Date().toLocaleTimeString('vi-VN');
+
+      const item = document.createElement('div');
+      item.className = 'p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-1';
+      item.innerHTML = `
+        <div class="flex items-center justify-between text-[11px]">
+          <div class="flex items-center gap-2">
+            <span class="text-slate-500">${timeStr}</span>
+            <span class="font-bold text-cyan-400">${method}</span>
+            <span class="text-slate-200">${endpoint}</span>
+            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold border ${statusColor}">${status}</span>
+            <span class="text-slate-400">${duration}ms</span>
+          </div>
+          <span class="text-indigo-400 text-[10px]">Metric: ${metricName}</span>
+        </div>
+        <pre class="bg-black/60 p-2 rounded text-slate-300 text-[11px] overflow-x-auto">${JSON.stringify(data, null, 2)}</pre>
+      `;
+      box.insertBefore(item, box.firstChild);
+    }
+
+    function clearConsole() {
+      document.getElementById('console-logs').innerHTML = '<div class="text-slate-500 italic text-center">Bấm các nút ở trên để gửi request và xem phản hồi tức thời!</div>';
+    }
+  </script>
+</body>
+</html>

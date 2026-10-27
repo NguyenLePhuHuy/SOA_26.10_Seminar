@@ -1,0 +1,44 @@
+groups:
+  - name: demo_service_alerts
+    rules:
+      - alert: DemoHighErrorRate
+        expr: |
+          (
+            sum(rate(demo_http_requests_total{status=~"5.."}[1m]))
+            /
+            sum(rate(demo_http_requests_total[1m]))
+          ) * 100 > 5
+        for: 30s
+        labels:
+          severity: critical
+          tier: api
+        annotations:
+          summary: "Ti le loi HTTP 5xx vuot qua 5%"
+          description: "Ti le loi HTTP 5xx cua demo-app hien tai dat {{ $value | printf \"%.2f\" }}% trong 1 phut qua (nguong > 5%)."
+          action: "Kiem tra log container demo-app hoac dung kich ban traffic-error."
+
+      - alert: DemoHighLatency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(demo_http_request_duration_seconds_bucket[1m])) by (le)
+          ) > 0.5
+        for: 30s
+        labels:
+          severity: warning
+          tier: performance
+        annotations:
+          summary: "Do tre p95 vuot nguong 500ms (0.5s)"
+          description: "Phan hoi p95 cua demo-app dang la {{ $value | printf \"%.3f\" }} giay (nguong > 0.5s)."
+          action: "Kiem tra endpoint /slow hoac tai nguyen CPU/Memory cua container."
+
+      - alert: DemoAPIDown
+        expr: up{job="demo-app"} == 0
+        for: 15s
+        labels:
+          severity: page
+          tier: infrastructure
+        annotations:
+          summary: "Dich vu demo-app bi mat ket noi (DOWN)"
+          description: "Prometheus khong the scrape metrics tu demo-app:8000 trong 15 giay lien tuc."
+          action: "Chay 'docker compose start demo-app' de khoi phuc dich vu."

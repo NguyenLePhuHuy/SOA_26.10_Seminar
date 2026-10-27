@@ -1,0 +1,26 @@
+# Environment Variables & Secrets
+.env
+alertmanager/secrets/telegram_bot_token
+!alertmanager/secrets/telegram_bot_token.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+.pytest_cache/
+
+# Docker volumes / persistence
+prometheus_data/
+grafana_data/
+alertmanager_data/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

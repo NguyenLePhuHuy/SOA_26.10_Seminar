@@ -1,0 +1,40 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+  scrape_timeout: 4s
+
+rule_files:
+  - "alert.rules.yml"
+
+alerting:
+  alertmanagers:
+    - scheme: http
+      static_configs:
+        - targets:
+            - "alertmanager:9093"
+
+scrape_configs:
+  - job_name: "demo-app"
+    metrics_path: "/metrics"
+    scheme: "http"
+    static_configs:
+      - targets: ["demo-app:8000"]
+        labels:
+          environment: "workshop"
+          service: "demo-application"
+
+  - job_name: "shop-app"
+    metrics_path: "/metrics"
+    scheme: "http"
+    static_configs:
+      - targets: ["shop-app:8001"]
+        labels:
+          environment: "workshop"
+          service: "shop-application"
+
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels:
+          environment: "workshop"
+          service: "prometheus-server"

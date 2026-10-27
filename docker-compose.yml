@@ -1,0 +1,174 @@
+services:
+  demo-app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    container_name: workshop-demo-app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    networks:
+      - monitoring-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 3s
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: workshop-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+      - "--web.enable-lifecycle"
+    ports:
+      - "${PROMETHEUS_PORT:-9091}:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - monitoring-net
+    depends_on:
+      demo-app:
+        condition: service_healthy
+      alertmanager:
+        condition: service_started
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    container_name: workshop-grafana
+    restart: unless-stopped
+    ports:
+      - "${GRAFANA_PORT:-3005}:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/dashboards/demo-dashboard.json
+    volumes:
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    networks:
+      - monitoring-net
+    depends_on:
+      - prometheus
+
+  load-generator:
+    build:
+      context: ./loadgen
+      dockerfile: Dockerfile
+    container_name: workshop-load-generator
+    restart: unless-stopped
+    environment:
+      - TARGET_URL=http://demo-app:8000
+      - MODE=${LOADGEN_MODE:-NORMAL}
+      - REQUEST_DELAY=${LOADGEN_DELAY:-0.5}
+    networks:
+      - monitoring-net
+    depends_on:
+      demo-app:
+        condition: service_healthy
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    container_name: workshop-alertmanager
+    restart: unless-stopped
+    ports:
+      - "${ALERTMANAGER_PORT:-9093}:9093"
+    environment:
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-0}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+    volumes:
+      - ./alertmanager/alertmanager.template.yml:/etc/alertmanager/alertmanager.template.yml:ro
+      - ./alertmanager/secrets:/etc/alertmanager/secrets:ro
+      - alertmanager_data:/alertmanager
+    networks:
+      - monitoring-net
+    depends_on:
+      webhook-receiver:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        mkdir -p /tmp/alertmanager
+        if [ -s /etc/alertmanager/secrets/telegram_bot_token ] && [ "$$(cat /etc/alertmanager/secrets/telegram_bot_token)" != "YOUR_TELEGRAM_BOT_TOKEN_HERE" ]; then
+            cp /etc/alertmanager/secrets/telegram_bot_token /tmp/alertmanager/bot_token
+        elif [ -n "$$TELEGRAM_BOT_TOKEN" ] && [ "$$TELEGRAM_BOT_TOKEN" != "YOUR_TELEGRAM_BOT_TOKEN_HERE" ]; then
+            echo "$$TELEGRAM_BOT_TOKEN" > /tmp/alertmanager/bot_token
+        else
+            echo "dummy-token-placeholder" > /tmp/alertmanager/bot_token
+        fi
+        case "$$TELEGRAM_CHAT_ID" in
+            ''|'0'|*[!0-9-]*) CHAT_ID="12345678" ;;
+            *) CHAT_ID="$$TELEGRAM_CHAT_ID" ;;
+        esac
+        sed "s/__TELEGRAM_CHAT_ID__/$$CHAT_ID/g" /etc/alertmanager/alertmanager.template.yml > /tmp/alertmanager/alertmanager.yml
+        exec /bin/alertmanager --config.file=/tmp/alertmanager/alertmanager.yml --storage.path=/alertmanager
+
+  webhook-receiver:
+    build:
+      context: ./webhook-receiver
+      dockerfile: Dockerfile
+    container_name: workshop-webhook-receiver
+    restart: unless-stopped
+    ports:
+      - "${WEBHOOK_PORT:-5001}:5001"
+    networks:
+      - monitoring-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 3s
+
+  shop-app:
+    build:
+      context: ./shop-app
+      dockerfile: Dockerfile
+    container_name: workshop-shop-app
+    restart: unless-stopped
+    ports:
+      - "${SHOP_APP_PORT:-8001}:8001"
+    networks:
+      - monitoring-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  shop-load-generator:
+    build:
+      context: ./shop-loadgen
+      dockerfile: Dockerfile
+    container_name: workshop-shop-loadgen
+    restart: unless-stopped
+    environment:
+      - TARGET_URL=http://shop-app:8001
+      - MODE=${SHOP_LOADGEN_MODE:-NORMAL}
+      - REQUEST_DELAY=${SHOP_LOADGEN_DELAY:-0.3}
+    networks:
+      - monitoring-net
+    depends_on:
+      shop-app:
+        condition: service_healthy
+
+networks:
+  monitoring-net:
+    driver: bridge
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  alertmanager_data:
